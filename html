@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NDA Red Flag Analyzer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Instrument+Sans:wght@400;500;600&family=Martian+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --surface2: #f3f0eb;
+  --border: #e2ddd7;
+  --border-dark: #c8c2b8;
+  --text: #1c1a17;
+  --text-mid: #5a5650;
+  --text-muted: #9a948c;
+  --accent: #8b3a2a;
+  --accent-light: #c4513e;
+  --accent-bg: rgba(139, 58, 42, 0.07);
+  --red: #c0392b;
+  --red-bg: rgba(192, 57, 43, 0.09);
+  --red-border: rgba(192, 57, 43, 0.3);
+  --red-mark: rgba(192, 57, 43, 0.18);
+  --orange: #d35400;
+  --orange-bg: rgba(211, 84, 0, 0.08);
+  --orange-border: rgba(211, 84, 0, 0.28);
+  --orange-mark: rgba(211, 84, 0, 0.15);
+  --yellow: #b7860b;
+  --yellow-bg: rgba(183, 134, 11, 0.08);
+  --yellow-border: rgba(183, 134, 11, 0.28);
+  --yellow-mark: rgba(183, 134, 11, 0.14);
+  --green: #1e6b45;
+  --green-bg: rgba(30, 107, 69, 0.08);
+  --panel-w: 440px;
+  --header-h: 58px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* ─── HEADER ─── */
+header {
+  height: var(--header-h);
+  background: var(--text);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 14px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 19px;
+  color: #faf8f5;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.logo span {
+  color: #e07060;
+}
+
+.header-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255,255,255,0.15);
+}
+
+.header-tag {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-ghost {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
+  padding: 6px 16px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+.btn-primary {
+  background: #e07060;
+  border: none;
+  color: #fff;
+  padding: 7px 20px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn-primary:hover { background: #c85f50; }
+.btn-primary:disabled { background: #666; cursor: not-allowed; opacity: 0.6; }
+
+/* ─── LAYOUT ─── */
+.app {
+  display: flex;
+  height: 100vh;
+  padding-top: var(--header-h);
+}
+
+/* ─── INPUT PANE ─── */
+.input-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+/* ─── RESULTS PANE ─── */
+.results-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ─── PANEL ─── */
+.side-panel {
+  width: var(--panel-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+
+.pane-bar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.pane-label {
+  font-family: 'Martian Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.pane-count {
+  font-family: 'Martian Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ─── TEXTAREA ─── */
+.nda-textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.75;
+  padding: 28px 32px;
+  overflow-y: auto;
+}
+
+.nda-textarea::placeholder {
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+/* ─── RENDERED DOC ─── */
+.doc-render {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+  font-family: 'Instrument Sans', sans-serif;
+  display: none;
+}
+
+.doc-render.visible { display: block; }
+
+/* Highlighted spans */
+.flag-span {
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 1px 2px;
+  border-bottom: 2px solid;
+  position: relative;
+}
+
+.flag-span.critical {
+  background: var(--red-mark);
+  border-bottom-color: var(--red);
+}
+.flag-span.high {
+  background: var(--orange-mark);
+  border-bottom-color: var(--orange);
+}
+.flag-span.medium {
+  background: var(--yellow-mark);
+  border-bottom-color: var(--yellow);
+}
+
+.flag-span:hover { filter: brightness(0.9); }
+.flag-span.active { outline: 2px solid currentColor; outline-offset: 1px; }
+
+/* ─── SUMMARY BAR ─── */
+.summary-bar {
+  display: none;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  align-items: center;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.summary-bar.visible { display: flex; }
+
+.sev-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: 'Martian Mono', monospace;
+}
+
+.sev-pill.critical { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.sev-pill.high { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+.sev-pill.medium { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ─── FLAG CARDS ─── */
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flag-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.flag-card:hover { border-color: var(--border-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.flag-card.active { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+
+.flag-card.critical { border-left: 3px solid var(--red); }
+.flag-card.active.critical { border-color: var(--red); }
+.flag-card.high { border-left: 3px solid var(--orange); }
+.flag-card.active.high { border-color: var(--orange); }
+.flag-card.medium { border-left: 3px solid var(--yellow); }
+.flag-card.active.medium { border-color: var(--yellow); }
+
+.card-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.card-sev {
+  font-family: 'Martian Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.critical .card-sev { background: var(--red-bg); color: var(--red); }
+.high .card-sev { background: var(--orange-bg); color: var(--orange); }
+.medium .card-sev { background: var(--yellow-bg); color: var(--yellow); }
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.card-body {
+  padding: 0 14px 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+}
+
+.card-section {
+  margin-top: 10px;
+}
+
+.card-section-label {
+  font-family: 'Martian Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.card-issue-text {
+  font-size: 12.5px;
+  color: var(--text-mid);
+  line-height: 1.55;
+}
+
+.card-matched {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--border-dark);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-mid);
+  border-radius: 2px;
+  line-height: 1.5;
+}
+
+.card-baseline {
+  background: var(--green-bg);
+  border: 1px solid rgba(30,107,69,0.2);
+  border-left: 2px solid var(--green);
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #1a5c3a;
+  border-radius: 2px;
+  line-height: 1.55;
+}
+
+/* ─── EMPTY / PLACEHOLDER STATES ─── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 10px;
+}
+
+.empty-icon {
+  font-size: 36px;
+  opacity: 0.3;
+  margin-bottom: 6px;
+}
+
+.empty-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  color: var(--text-mid);
+  font-style: italic;
+}
+
+.empty-sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  max-width: 240px;
+  line-height: 1.6;
+}
+
+/* ─── SCROLLBARS ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── ALL CLEAR ─── */
+.all-clear {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--green);
+  padding: 40px;
+  text-align: center;
+}
+
+.all-clear-icon { font-size: 40px; }
+
+.all-clear-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.all-clear-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 260px;
+}
+
+/* ─── FOUND TEXT HIGHLIGHT ─── */
+mark.found {
+  background: rgba(30,107,69,0.15);
+  color: inherit;
+  border-radius: 2px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">NDA <span>⚑</span> Radar</div>
+  <div class="header-divider"></div>
+  <div class="header-tag">Disclosing Party · Scope Analyzer</div>
+  <div class="header-actions">
+    <button class="btn-ghost" id="loadSampleBtn">Load Sample NDA</button>
+    <button class="btn-ghost" id="clearBtn">Clear</button>
+    <button class="btn-primary" id="analyzeBtn">
+      <span>⚑</span> Analyze NDA
+    </button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- LEFT: Input / Render -->
+  <div class="input-pane" id="inputPane">
+    <div class="pane-bar">
+      <span class="pane-label">Paste NDA Text</span>
+      <span class="pane-count" id="charCount">0 chars</span>
+    </div>
+    <textarea class="nda-textarea" id="ndaInput"
+      placeholder="Paste the counterparty's NDA here…&#10;&#10;The analyzer will scan for:&#10;  · Narrow or exhaustive definitions of Confidential Information&#10;  · Residuals clauses that gut your protection&#10;  · Oral disclosure exclusions&#10;  · Missing derived materials coverage&#10;  · Weak employee obligation language&#10;  · Short survival terms&#10;  · Broad affiliate carve-outs&#10;  · Weak return/destruction obligations&#10;  · And more…&#10;&#10;No data leaves your browser. Everything runs locally."></textarea>
+  </div>
+
+  <!-- MIDDLE: Results -->
+  <div class="results-pane" id="resultsPane">
+    <div class="pane-bar" id="resultsBar">
+      <span class="pane-label">Annotated Document</span>
+      <div class="summary-bar" id="summaryBar">
+        <span class="sev-pill critical" id="critCount" style="display:none"><span class="dot"></span><span id="critNum">0</span> Critical</span>
+        <span class="sev-pill high" id="highCount" style="display:none"><span class="dot"></span><span id="highNum">0</span> High</span>
+        <span class="sev-pill medium" id="medCount" style="display:none"><span class="dot"></span><span id="medNum">0</span> Medium</span>
+      </div>
+    </div>
+
+    <div class="doc-render" id="docRender"></div>
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">⚖</div>
+      <div class="empty-title">No document analyzed yet</div>
+      <div class="empty-sub">Paste an NDA on the left and click "Analyze NDA" to see inline flags and red flags.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Side Panel -->
+  <div class="side-panel">
+    <div class="pane-bar">
+      <span class="pane-label">Flag Detail</span>
+      <span class="pane-count" id="flagTotal">—</span>
+    </div>
+    <div class="panel-scroll" id="panelScroll">
+      <div class="empty-state">
+        <div class="empty-icon">⚑</div>
+        <div class="empty-title">Flags will appear here</div>
+        <div class="empty-sub">Each flag shows the issue, the matched text, and the correct baseline clause.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// RED FLAG RULES — hardcoded, pattern-matched
+// severity: "critical" | "high" | "medium"
+// ═══════════════════════════════════════════════════════════
+const RED_FLAGS = [
+  // ── CRITICAL ──────────────────────────────────────────
+  {
+    id: "residuals",
+    severity: "critical",
+    title: "Residuals Clause Detected",
+    patterns: [/residuals?/i, /unaided\s+memory/i, /retained\s+in\s+(the\s+)?memory/i, /mentally\s+retain/i],
+    issue: "A residuals clause allows the Receiving Party to freely use anything they mentally retain from your Confidential Information. This single clause can nullify your entire NDA for practical purposes.",
+    baseline: "No residuals clause. The Receiving Party's obligations apply to all Confidential Information regardless of whether it was retained in memory, notes, or any other form."
+  },
+  {
+    id: "written_only",
+    severity: "critical",
+    title: "Written-Only Disclosure Requirement",
+    patterns: [/only\s+if\s+(it\s+is\s+)?(?:marked|designated|identified|labeled)\s+(?:as\s+)?confidential/i, /must\s+be\s+(in\s+writing|written|marked)/i, /confidential\s+(?:stamp|marking|label)/i, /only.*written.*form.*confidential/i, /identified\s+in\s+writing\s+as\s+confidential/i, /marked\s+(?:as\s+)?["']?confidential["']?/i],
+    issue: "Limiting Confidential Information to only written/marked disclosures excludes oral presentations, demos, and unmarked documents — a huge gap for real business discussions.",
+    baseline: "Confidential Information means any non-public information disclosed in ANY form — oral, written, electronic, or other — including but not limited to business plans, trade secrets, technical data, and derived materials."
+  },
+  {
+    id: "no_derived",
+    severity: "critical",
+    title: "No Protection for Derived Materials",
+    patterns: [/\bderiv/i],
+    issue: "Without explicit coverage of derived materials, the Receiving Party can create notes, analyses, and summaries of your information and claim they are not covered by the NDA.",
+    baseline: "Confidential Information also includes any notes, analyses, compilations, studies, or materials derived from or incorporating the disclosed information.",
+    negativeMatch: true, // flag when pattern is ABSENT
+    negativeLabel: "No 'derived' language found"
+  },
+  {
+    id: "exhaustive_definition",
+    severity: "critical",
+    title: "Exhaustive / Closed Definition of Confidential Information",
+    patterns: [/confidential information\s+(?:means?|is\s+limited\s+to|shall\s+(?:only\s+)?mean|consists?\s+of)\s*:?\s*(?:only|solely|exclusively)/i, /limited\s+to\s+(?:the\s+)?following/i, /only\s+the\s+following.*shall.*confidential/i],
+    issue: "An exhaustive list with 'only' or 'limited to' means anything not explicitly listed is unprotected. The counterparty's lawyers will exploit every gap.",
+    baseline: "Confidential Information includes but is not limited to [categories]. The definition is intentionally broad and non-exhaustive."
+  },
+
+  // ── HIGH ──────────────────────────────────────────────
+  {
+    id: "short_survival",
+    severity: "high",
+    title: "Short or No Survival Period for Trade Secrets",
+    patterns: [/(?:obligations?|agreement|confidentiality)\s+(?:shall\s+)?(?:survive|remain\s+in\s+effect)\s+for\s+(?:one\s+\(1\)|1)\s+year/i, /surviv\w+\s+(?:for\s+)?(?:one|1|two|2)\s+year/i],
+    issue: "A 1–2 year survival period is dangerously short. Trade secrets and sensitive IP should be protected indefinitely. Short terms encourage recipients to just wait out the clock.",
+    baseline: "Confidentiality obligations survive termination for at least 3–5 years. Trade secrets are protected for as long as they qualify as trade secrets under applicable law (potentially indefinitely)."
+  },
+  {
+    id: "no_breach_notice",
+    severity: "high",
+    title: "No Breach Notification Requirement",
+    patterns: [/breach|unauthorized\s+disclosure|notify.*breach|breach.*notify/i],
+    issue: "Without a breach notification obligation, you may never learn your Confidential Information was compromised until it's too late to seek injunctive relief.",
+    baseline: "The Receiving Party shall promptly notify the Disclosing Party upon becoming aware of any unauthorized use or disclosure of Confidential Information.",
+    negativeMatch: true,
+    negativeLabel: "No breach notification language found"
+  },
+  {
+    id: "affiliate_carveout",
+    severity: "high",
+    title: "Broad Affiliate / Subsidiary Carve-out",
+    patterns: [/affiliates?\s+(?:and|or)\s+subsidiaries/i, /(?:disclose|share|provide)\s+(?:to\s+)?(?:its\s+)?affiliates/i, /affiliates?,?\s+subsidiaries?,?\s+and\s+(?:related|associated)\s+entit/i],
+    issue: "Allowing disclosure to all affiliates without restriction means your information can flow to the Receiving Party's entire corporate family — potentially including competitors — with no additional safeguards.",
+    baseline: "Disclosure is limited to employees and agents who have a need-to-know for the stated Purpose and are bound by written confidentiality obligations at least as protective as this Agreement."
+  },
+  {
+    id: "weak_employee_obligations",
+    severity: "high",
+    title: "Employees Not Required to be Bound in Writing",
+    patterns: [/employees?.*(?:informed|notified|made\s+aware)/i, /inform(?:ed)?\s+employees?/i, /notif(?:y|ied)\s+employees?.*confidential/i],
+    issue: "Merely 'informing' employees is not enough. Without requiring written confidentiality agreements, departing employees face no enforceable contractual obligation.",
+    baseline: "Access is limited to employees or agents who need to know and who are bound by written confidentiality obligations no less protective than those in this Agreement."
+  },
+  {
+    id: "reasonable_efforts",
+    severity: "high",
+    title: "'Reasonable Efforts' Standard (Weaker than 'Reasonable Care')",
+    patterns: [/reasonable\s+(?:commercial\s+)?efforts?\s+to\s+(?:protect|maintain|keep)/i, /best\s+efforts?\s+to\s+(?:protect|keep\s+confidential)/i],
+    issue: "'Reasonable efforts' or 'best efforts' are often interpreted as a lower standard than 'reasonable care' and can allow substandard protection if they can argue cost constraints.",
+    baseline: "The Receiving Party shall protect Confidential Information with at least the same care used for its own confidential information, and no less than reasonable care."
+  },
+  {
+    id: "broad_third_party_exclusion",
+    severity: "high",
+    title: "Overly Broad Third-Party Source Exclusion",
+    patterns: [/received\s+from\s+(?:a\s+)?(?:any\s+)?third\s+party(?!\s+without\s+restriction)/i, /(?:obtained|acquired|received)\s+from\s+(?:a\s+)?third\s+party\s+(?:without|free\s+from)/i],
+    issue: "An exclusion for information 'received from a third party' without requiring that the third party was authorized to share it creates a loophole — the counterparty could receive your stolen information and claim it's excluded.",
+    baseline: "Information is excluded only if lawfully received from a third party who is not under any obligation of confidentiality with respect to such information."
+  },
+
+  // ── MEDIUM ────────────────────────────────────────────
+  {
+    id: "governing_law",
+    severity: "medium",
+    title: "Governing Law Changed to Unfamiliar Jurisdiction",
+    patterns: [/governed\s+by\s+(?:the\s+laws?\s+of\s+)?(?!colorado|your\s+state)((?:the\s+state\s+of\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i, /laws?\s+of\s+(?:the\s+state\s+of\s+)?(?:delaware|new\s+york|california|texas|nevada|florida)/i],
+    issue: "A change in governing law could force you to litigate in an unfamiliar court under different trade secret and confidentiality statutes. Colorado law should govern.",
+    baseline: "This Agreement shall be governed by the laws of the State of Colorado, without regard to conflict of laws principles."
+  },
+  {
+    id: "arbitration",
+    severity: "medium",
+    title: "Mandatory Arbitration / No Injunctive Relief in Court",
+    patterns: [/(?:mandatory|binding)\s+arbitration/i, /(?:disputes?|claims?)\s+shall\s+be\s+(?:resolved\s+by|submitted\s+to)\s+arbitration/i, /arbitrat\w+\s+(?:shall\s+be\s+)?(?:the\s+)?(?:sole|exclusive)\s+remedy/i],
+    issue: "Mandatory arbitration can prevent you from seeking emergency injunctive relief in court — which is your primary remedy if the Receiving Party is actively misusing your Confidential Information.",
+    baseline: "The Disclosing Party retains the right to seek injunctive or equitable relief in any court of competent jurisdiction without the requirement of arbitration or posting bond."
+  },
+  {
+    id: "weak_destruction",
+    severity: "medium",
+    title: "Weak Return/Destruction Obligation",
+    patterns: [/commercially\s+reasonable\s+(?:efforts?\s+to\s+)?(?:destroy|return|delete)/i, /(?:may\s+)?retain(?:ed)?\s+in\s+(?:backup|archival|routine|standard)\s+systems?/i, /archiv(?:al|e)\s+(?:copies?|retention)/i],
+    issue: "Allowing indefinite retention in 'backup systems' without a purge deadline means your data may persist forever. 'Commercially reasonable efforts' is a weak obligation that may allow excuses.",
+    baseline: "Upon request, the Receiving Party will promptly return or certifiably destroy all Confidential Information and copies. Retention in backup systems must be overwritten within a defined cycle."
+  },
+  {
+    id: "no_injunctive_ack",
+    severity: "medium",
+    title: "No Acknowledgment of Irreparable Harm / Injunctive Relief",
+    patterns: [/irreparable|injunctive\s+relief|equitable\s+relief/i],
+    issue: "Without the Receiving Party acknowledging that a breach causes irreparable harm, you must separately prove this to a court when seeking emergency relief — slowing down your response.",
+    baseline: "The Receiving Party acknowledges that unauthorized disclosure may cause irreparable harm for which monetary damages are inadequate, and the Disclosing Party may seek injunctive relief in addition to all other remedies.",
+    negativeMatch: true,
+    negativeLabel: "No irreparable harm acknowledgment found"
+  },
+  {
+    id: "generally_known",
+    severity: "medium",
+    title: "'Generally Known in Industry' Exclusion (Overly Broad)",
+    patterns: [/generally\s+known\s+(?:in|within|to)\s+(?:the\s+)?(?:industry|field|trade|market|public)/i, /known\s+(?:to\s+)?(?:experts?\s+in|practitioners?\s+in|professionals?\s+in)/i],
+    issue: "'Generally known in the industry' is far broader than 'publicly available.' Your proprietary combination of known elements, or internal applications of known techniques, could be excluded.",
+    baseline: "Exclusions apply only to information that becomes publicly available through no fault of the Receiving Party — not merely information 'known in the industry.'"
+  },
+  {
+    id: "mutual_in_unilateral",
+    severity: "medium",
+    title: "Mutual Obligations Inserted into a One-Way NDA",
+    patterns: [/(?:each|both|either)\s+party(?:\s+shall|\s+agrees?|\s+will)\s+(?:keep|maintain|protect|hold)\s+confidential/i, /(?:disclosing|receiving)\s+party\s+also\s+agrees?\s+to/i, /obligations?\s+(?:of|on\s+both|apply\s+to\s+both)/i],
+    issue: "A mutual obligation clause in a one-way NDA creates confidentiality duties on you as the Disclosing Party — potentially preventing you from disclosing the Receiving Party's information even when you need to.",
+    baseline: "This is a one-way NDA. Only the Receiving Party has confidentiality obligations. The Disclosing Party retains full freedom to use and disclose its own information."
+  }
+];
+
+// ═══════════════════════════════════════════════════════════
+// SAMPLE NDA (problematic counterparty version)
+// ═══════════════════════════════════════════════════════════
+const SAMPLE_NDA = `NON-DISCLOSURE AGREEMENT
+
+This Mutual Non-Disclosure Agreement ("Agreement") is entered into as of January 15, 2025, by and between Acme Corp ("Disclosing Party") and Counterparty LLC ("Receiving Party").
+
+1. PURPOSE
+The parties wish to explore a potential business relationship and may disclose certain information to each other for evaluation purposes.
+
+2. DEFINITION OF CONFIDENTIAL INFORMATION
+"Confidential Information" means only written information that is marked or labeled as "CONFIDENTIAL" at the time of disclosure. Oral disclosures shall be confirmed in writing within five (5) business days to be considered Confidential Information. Confidential Information is limited to the following categories: financial projections, product roadmaps, and pricing data.
+
+3. OBLIGATIONS OF RECEIVING PARTY
+The Receiving Party agrees to:
+- Use Confidential Information solely for the stated Purpose
+- Protect such information using reasonable commercial efforts
+- Disclose only to employees after informing them of the confidential nature of such information
+- Share with affiliates and subsidiaries as reasonably required for the Purpose
+
+4. EXCLUSIONS
+Confidential Information does not include information that:
+- Is or becomes generally known within the industry through no breach of this Agreement
+- Was already known to the Receiving Party prior to disclosure
+- Is received from a third party without accompanying restriction
+- Is independently developed by the Receiving Party
+- Is retained in the unaided memory of the Receiving Party's personnel following exposure to such information (residuals)
+
+5. REQUIRED DISCLOSURE
+If legally required to disclose, the Receiving Party shall provide reasonable notice to the extent permitted by law.
+
+6. TERM AND SURVIVAL
+This Agreement shall remain in effect for two (2) years from the Effective Date. Confidentiality obligations shall survive for one (1) year after termination of this Agreement. Notwithstanding the foregoing, either party may retain archival copies in its standard backup systems without obligation to destroy such copies.
+
+7. RETURN OR DESTRUCTION
+Upon written request, the Receiving Party shall use commercially reasonable efforts to return or destroy Confidential Information, except for copies retained in routine backup or archival systems, which shall be subject to the Receiving Party's standard data lifecycle policies.
+
+8. NO LICENSE
+Nothing herein grants any license or ownership rights.
+
+9. DISPUTE RESOLUTION
+Any disputes arising under this Agreement shall be resolved exclusively through binding arbitration administered by JAMS under its Commercial Arbitration Rules. The arbitration shall take place in Delaware.
+
+10. GOVERNING LAW
+This Agreement is governed by the laws of the State of Delaware.
+
+11. ENTIRE AGREEMENT
+This Agreement is the entire agreement between the parties on this subject.`;
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let detectedFlags = [];
+let activeCardId = null;
+
+// ═══════════════════════════════════════════════════════════
+// ANALYSIS ENGINE
+// ═══════════════════════════════════════════════════════════
+function analyzeNDA(text) {
+  const results = [];
+
+  for (const rule of RED_FLAGS) {
+    if (rule.negativeMatch) {
+      // Flag when the pattern is ABSENT
+      const found = rule.patterns.some(p => p.test(text));
+      if (!found) {
+        // Find a plausible sentence to "anchor" the flag — look for definition section
+        const anchor = findAnchorForAbsent(text, rule.id);
+        results.push({
+          ...rule,
+          matchedText: rule.negativeLabel,
+          matchStart: anchor.start,
+          matchEnd: anchor.end,
+          isAbsent: true
+        });
+      }
+    } else {
+      // Flag when the pattern IS present
+      for (const pattern of rule.patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const start = text.indexOf(match[0]);
+          const end = start + match[0].length;
+          results.push({
+            ...rule,
+            matchedText: match[0],
+            matchStart: start,
+            matchEnd: end,
+            isAbsent: false
+          });
+          break; // one match per rule
+        }
+      }
+    }
+  }
+
+  // Sort by position in doc
+  results.sort((a, b) => a.matchStart - b.matchStart);
+  return results;
+}
+
+function findAnchorForAbsent(text, ruleId) {
+  // For absent-pattern flags, anchor to a relevant section
+  const anchors = {
+    no_derived: /definition|confidential information/i,
+    no_breach_notice: /obligations?|receiving party/i,
+    no_injunctive_ack: /remedies?|relief/i,
+  };
+  const pattern = anchors[ruleId] || /\./;
+  const match = text.match(pattern);
+  if (match) {
+    const s = text.indexOf(match[0]);
+    return { start: s, end: s + match[0].length };
+  }
+  return { start: 0, end: 20 };
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — annotated document
+// ═══════════════════════════════════════════════════════════
+function renderAnnotatedDoc(text, flags) {
+  if (flags.length === 0) return escapeHtml(text).replace(/\n/g, '<br>');
+
+  // Build non-overlapping annotation ranges
+  const ranges = [];
+  for (const flag of flags) {
+    if (!flag.isAbsent) {
+      ranges.push({ start: flag.matchStart, end: flag.matchEnd, flag });
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start);
+
+  let html = '';
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start < cursor) continue; // skip overlaps
+    html += escapeHtml(text.slice(cursor, range.start));
+    html += `<span class="flag-span ${range.flag.severity}" data-id="${range.flag.id}" title="${range.flag.title}">${escapeHtml(text.slice(range.start, range.end))}</span>`;
+    cursor = range.end;
+  }
+  html += escapeHtml(text.slice(cursor));
+  return html.replace(/\n/g, '<br>');
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — side panel cards
+// ═══════════════════════════════════════════════════════════
+function renderCards(flags) {
+  const scroll = document.getElementById('panelScroll');
+  if (flags.length === 0) {
+    scroll.innerHTML = `<div class="all-clear">
+      <div class="all-clear-icon">✓</div>
+      <div class="all-clear-title">No red flags detected</div>
+      <div class="all-clear-sub">This NDA appears consistent with your baseline. Have counsel confirm before signing.</div>
+    </div>`;
+    return;
+  }
+
+  scroll.innerHTML = flags.map(flag => {
+    const matchedSection = flag.isAbsent
+      ? `<div class="card-section"><div class="card-section-label">Issue</div><div class="card-matched"><em>${flag.matchedText}</em></div></div>`
+      : `<div class="card-section"><div class="card-section-label">Matched Text</div><div class="card-matched">"…${escapeHtml(flag.matchedText)}…"</div></div>`;
+
+    return `<div class="flag-card ${flag.severity}" data-id="${flag.id}" onclick="selectCard('${flag.id}')">
+      <div class="card-header">
+        <span class="card-sev">${flag.severity}</span>
+        <span class="card-title">${flag.title}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-section">
+          <div class="card-section-label">Why It Matters</div>
+          <div class="card-issue-text">${flag.issue}</div>
+        </div>
+        ${matchedSection}
+        <div class="card-section">
+          <div class="card-section-label">✓ Baseline Language</div>
+          <div class="card-baseline">${flag.baseline}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════
+function selectCard(id) {
+  // Deselect previous
+  document.querySelectorAll('.flag-card.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.flag-span.active').forEach(el => el.classList.remove('active'));
+
+  if (activeCardId === id) {
+    activeCardId = null;
+    return;
+  }
+  activeCardId = id;
+
+  // Highlight card
+  const card = document.querySelector(`.flag-card[data-id="${id}"]`);
+  if (card) {
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Highlight span in doc
+  const span = document.querySelector(`.flag-span[data-id="${id}"]`);
+  if (span) {
+    span.classList.add('active');
+    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function runAnalysis() {
+  const text = document.getElementById('ndaInput').value.trim();
+  if (!text) return;
+
+  detectedFlags = analyzeNDA(text);
+
+  // Show annotated doc
+  const docRender = document.getElementById('docRender');
+  docRender.innerHTML = renderAnnotatedDoc(text, detectedFlags);
+  docRender.classList.add('visible');
+  document.getElementById('emptyState').style.display = 'none';
+
+  // Wire up span clicks
+  docRender.querySelectorAll('.flag-span').forEach(span => {
+    span.addEventListener('click', () => selectCard(span.dataset.id));
+  });
+
+  // Update summary counts
+  const crit = detectedFlags.filter(f => f.severity === 'critical').length;
+  const high = detectedFlags.filter(f => f.severity === 'high').length;
+  const med  = detectedFlags.filter(f => f.severity === 'medium').length;
+
+  const summaryBar = document.getElementById('summaryBar');
+  summaryBar.classList.add('visible');
+
+  const critEl = document.getElementById('critCount');
+  const highEl = document.getElementById('highCount');
+  const medEl  = document.getElementById('medCount');
+
+  if (crit > 0) { critEl.style.display = 'flex'; document.getElementById('critNum').textContent = crit; } else critEl.style.display = 'none';
+  if (high > 0) { highEl.style.display = 'flex'; document.getElementById('highNum').textContent = high; } else highEl.style.display = 'none';
+  if (med > 0)  { medEl.style.display  = 'flex'; document.getElementById('medNum').textContent  = med;  } else medEl.style.display  = 'none';
+
+  // Total in panel header
+  const total = detectedFlags.length;
+  document.getElementById('flagTotal').textContent = total === 0 ? 'No flags' : `${total} flag${total !== 1 ? 's' : ''} found`;
+
+  // Render cards
+  renderCards(detectedFlags);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('ndaInput');
+  const charCount = document.getElementById('charCount');
+
+  input.addEventListener('input', () => {
+    charCount.textContent = input.value.length.toLocaleString() + ' chars';
+  });
+
+  document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    input.value = '';
+    charCount.textContent = '0 chars';
+    document.getElementById('docRender').classList.remove('visible');
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('summaryBar').classList.remove('visible');
+    document.getElementById('flagTotal').textContent = '—';
+    document.getElementById('panelScroll').innerHTML = `<div class="empty-state">
+      <div class="empty-icon">⚑</div>
+      <div class="empty-title">Flags will appear here</div>
+      <div class="empty-sub">Each flag shows the issue, the matched text, and the correct baseline clause.</div>
+    </div>`;
+    detectedFlags = [];
+    activeCardId = null;
+  });
+
+  document.getElementById('loadSampleBtn').addEventListener('click', () => {
+    input.value = SAMPLE_NDA;
+    charCount.textContent = SAMPLE_NDA.length.toLocaleString() + ' chars';
+  });
+
+  // Allow Ctrl+Enter to analyze
+  input.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runAnalysis();
+  });
+});
+</script>
+</body>
+</html>
+
